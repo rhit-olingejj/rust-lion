@@ -207,58 +207,40 @@ where
         }
 
         // Territorial Takeover Step (simplified)
-        // Build candidate sets: mature cubs plus current territorial lions.
-        let mature_male_candidates = {
-            let mut v: Vec<Lion> = male_cubs
-                .iter()
-                .filter(|c| c.age >= config.maturity_age && c.gender == Gender::Male)
-                .cloned()
-                .collect();
-            if male.gender == Gender::Male {
-                v.push(male.clone());
-            }
-            v
-        };
-
-        let mature_female_candidates = {
-            let mut v: Vec<Lion> = female_cubs
-                .iter()
-                .filter(|c| c.age >= config.maturity_age && c.gender == Gender::Female)
-                .cloned()
-                .collect();
-            if female.gender == Gender::Female {
-                v.push(female.clone());
-            }
-            v
-        };
-
-        // Choose best male / female as territorial lions.
-        if let Some(best_male) = mature_male_candidates
+        // Choose the best mature male candidate (clone only the selected candidate).
+        let best_male_candidate: Option<Lion> = male_cubs
             .iter()
-            .min_by(|a, b| a.fitness.partial_cmp(&b.fitness).unwrap())
-        {
-            // Enforce male gender.
-            debug_assert_eq!(best_male.gender, Gender::Male);
-            male = best_male.clone();
+            .filter(|c| c.age >= config.maturity_age && c.gender == Gender::Male)
+            .min_by(|a, b| a.fitness.partial_cmp(&b.fitness).unwrap_or(std::cmp::Ordering::Equal))
+            .cloned();
+
+        if let Some(candidate) = best_male_candidate {
+            debug_assert_eq!(candidate.gender, Gender::Male);
+            if candidate.fitness < male.fitness {
+                male = candidate;
+            }
         }
 
-        // For females, we mimic breeding strength. This limits how long a female can remain territorial without being replaced by a better one.
-        if let Some(best_female_candidate) = mature_female_candidates
+        // Choose the best mature female candidate similarly and apply takeover logic.
+        let best_female_candidate: Option<Lion> = female_cubs
             .iter()
-            .min_by(|a, b| a.fitness.partial_cmp(&b.fitness).unwrap())
-        {
-            debug_assert_eq!(best_female_candidate.gender, Gender::Female);
+            .filter(|c| c.age >= config.maturity_age && c.gender == Gender::Female)
+            .min_by(|a, b| a.fitness.partial_cmp(&b.fitness).unwrap_or(std::cmp::Ordering::Equal))
+            .cloned();
 
-            if best_female_candidate.fitness < female.fitness {
+        if let Some(candidate) = best_female_candidate {
+            debug_assert_eq!(candidate.gender, Gender::Female);
+
+            if candidate.fitness < female.fitness {
                 // Found a stronger female, replace immediately.
-                female = best_female_candidate.clone();
+                female = candidate;
                 female_breed_count = 0;
             } else {
                 // No better one; increment breed count.
                 female_breed_count += 1;
                 if female_breed_count >= max_female_breed_strength {
                     // Force takeover by the best candidate even if slightly worse.
-                    female = best_female_candidate.clone();
+                    female = candidate;
                     female_breed_count = 0;
                 }
             }
@@ -267,14 +249,14 @@ where
         // Keep cub pools from exploding: truncate to maintain diversity
         truncate_cub_pools(&mut male_cubs, &mut female_cubs, cubs_per_generation);
 
-        // Track global best.
-        for l in [male.clone(), female.clone()]
-            .into_iter()
-            .chain(male_cubs.iter().cloned())
-            .chain(female_cubs.iter().cloned())
+        // Track global best by iterating references; clone only when a better lion is found.
+        for l in std::iter::once(&male)
+            .chain(std::iter::once(&female))
+            .chain(male_cubs.iter())
+            .chain(female_cubs.iter())
         {
             if l.fitness < best.fitness {
-                best = l;
+                best = l.clone();
             }
         }
 
@@ -419,9 +401,9 @@ fn mutate_vector(x: &[f64], config: &LionConfig) -> Vec<f64> {
 
 /// Keep male and female cub pools the same size by trimming the worse fitness from larger pool
 fn balance_cub_pools(male_cubs: &mut Vec<Lion>, female_cubs: &mut Vec<Lion>) {
-    // sort ascending by fitness (best first)
-    male_cubs.sort_by(|a, b| a.fitness.partial_cmp(&b.fitness).unwrap());
-    female_cubs.sort_by(|a, b| a.fitness.partial_cmp(&b.fitness).unwrap());
+    // sort ascending by fitness (best first) using total order and an unstable sort
+    male_cubs.sort_unstable_by(|a, b| a.fitness.total_cmp(&b.fitness));
+    female_cubs.sort_unstable_by(|a, b| a.fitness.total_cmp(&b.fitness));
 
     let mut m = male_cubs.len();
     let mut f = female_cubs.len();
@@ -482,8 +464,8 @@ fn truncate_cub_pools(
     female_cubs: &mut Vec<Lion>,
     max_cubs_per_gender: usize,
 ) {
-    male_cubs.sort_by(|a, b| a.fitness.partial_cmp(&b.fitness).unwrap());
-    female_cubs.sort_by(|a, b| a.fitness.partial_cmp(&b.fitness).unwrap());
+    male_cubs.sort_unstable_by(|a, b| a.fitness.total_cmp(&b.fitness));
+    female_cubs.sort_unstable_by(|a, b| a.fitness.total_cmp(&b.fitness));
 
     if male_cubs.len() > max_cubs_per_gender {
         male_cubs.truncate(max_cubs_per_gender);

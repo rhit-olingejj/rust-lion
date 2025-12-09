@@ -3,7 +3,7 @@ use rust_lion::{LionConfig, lion_optimize};
 use std::env;
 use std::error::Error;
 use std::fs::File;
-use std::path::Path;
+use std::path::{Path, PathBuf};
 
 /// Load tab-separated numeric data from a file.
 fn load_numeric_tsv<P: AsRef<Path>>(path: P) -> Result<Vec<Vec<f64>>, Box<dyn Error>> {
@@ -18,14 +18,66 @@ fn load_numeric_tsv<P: AsRef<Path>>(path: P) -> Result<Vec<Vec<f64>>, Box<dyn Er
     for result in rdr.records() {
         let record = result?;
         let row: Result<Vec<f64>, _> = record.iter().map(|field| field.parse::<f64>()).collect();
-
         data.push(row?);
     }
 
     Ok(data)
 }
 
-/// Compute regression metrics: MAE, RMSE, and R².
+/// Normalize data to [0, 1] range using min-max scaling.
+/// Returns normalized data and (min_vals, max_vals) for each column.
+fn normalize_data(data: &[Vec<f64>]) -> (Vec<Vec<f64>>, Vec<f64>, Vec<f64>) {
+    if data.is_empty() {
+        return (vec![], vec![], vec![]);
+    }
+
+    let n_cols = data[0].len();
+    let mut min_vals = vec![f64::INFINITY; n_cols];
+    let mut max_vals = vec![f64::NEG_INFINITY; n_cols];
+
+    // Find min/max for each column
+    for row in data {
+        for (j, &val) in row.iter().enumerate() {
+            if val < min_vals[j] {
+                min_vals[j] = val;
+            }
+            if val > max_vals[j] {
+                max_vals[j] = val;
+            }
+        }
+    }
+
+    // Normalize data
+    let mut normalized = Vec::with_capacity(data.len());
+    for row in data {
+        let mut norm_row = Vec::with_capacity(n_cols);
+        for (j, &val) in row.iter().enumerate() {
+            let range = max_vals[j] - min_vals[j];
+            let normalized_val = if range > 0.0 {
+                (val - min_vals[j]) / range
+            } else {
+                // If all values are the same, normalize to midpoint
+                0.5
+            };
+            norm_row.push(normalized_val);
+        }
+        normalized.push(norm_row);
+    }
+
+    (normalized, min_vals, max_vals)
+}
+
+/// Denormalize a prediction value back to original scale.
+fn denormalize_target(normalized_val: f64, min_val: f64, max_val: f64) -> f64 {
+    let range = max_val - min_val;
+    if range > 0.0 {
+        normalized_val * range + min_val
+    } else {
+        min_val
+    }
+}
+
+/// Compute regression metrics: MAE, RMSE, and R^2.
 /// Returns (mae, rmse, r_squared)
 fn compute_metrics(data: &[&Vec<f64>], coefficients: &[f64], n_features: usize) -> (f64, f64, f64) {
     let mut sum_abs_error = 0.0;
@@ -33,14 +85,16 @@ fn compute_metrics(data: &[&Vec<f64>], coefficients: &[f64], n_features: usize) 
     let mut sum_target = 0.0;
     let mut sum_sq_diff_from_mean = 0.0;
 
+    let bias = coefficients[0];
+
     for row in data {
         let features = &row[..n_features];
         let target = row[n_features];
 
-        // Compute prediction
-        let mut pred = 0.0;
+        // prediction = bias + Σ w_i * x_i
+        let mut pred = bias;
         for (i, &feature) in features.iter().enumerate() {
-            pred += coefficients[i] * feature;
+            pred += coefficients[i + 1] * feature;
         }
 
         let error = target - pred;
@@ -52,7 +106,7 @@ fn compute_metrics(data: &[&Vec<f64>], coefficients: &[f64], n_features: usize) 
     let n = data.len() as f64;
     let mean_target = sum_target / n;
 
-    // Compute total sum of squares (for R²)
+    // Compute total sum of squares
     for row in data {
         let target = row[n_features];
         let diff = target - mean_target;
@@ -77,13 +131,14 @@ fn main() -> Result<(), Box<dyn Error>> {
     // Parse command-line arguments
     let args: Vec<String> = env::args().collect();
 
-    let file_path: &Path = args
+    // Default to airfoil_self_noise.dat in current directory
+    let file_path: PathBuf = args
         .get(1)
-        .map(Path::new)
-        .unwrap_or_else(|| Path::new("airfoil_self_noise.dat"));
+        .map(PathBuf::from)
+        .unwrap_or_else(|| PathBuf::from("airfoil_self_noise.dat"));
 
     // Load the dataset
-    let data = load_numeric_tsv(file_path)?;
+    let data = load_numeric_tsv(&file_path)?;
 
     if data.is_empty() {
         eprintln!("Error: Dataset is empty.");
@@ -97,11 +152,14 @@ fn main() -> Result<(), Box<dyn Error>> {
         return Err("Insufficient columns".into());
     }
 
-    let n_features = n_cols - 1; // All columns except the last
-    let dim = n_features;
+    // All columns except the last
+    let n_features = n_cols - 1;
 
-    // Filter rows with all numeric values
-    let valid_data: Vec<_> = data.iter().filter(|row| row.len() > n_features).collect();
+    // Normalize data
+    let valid_data: Vec<Vec<f64>> = data
+        .into_iter()
+        .filter(|row| row.len() > n_features)
+        .collect();
 
     if valid_data.is_empty() {
         eprintln!("Error: No valid data rows found.");
@@ -109,15 +167,19 @@ fn main() -> Result<(), Box<dyn Error>> {
     }
 
     println!("Loaded {} valid samples from dataset.", valid_data.len());
-    println!(
-        "Features: {}, Target column: {}",
-        n_features,
-        n_features + 1
-    );
+    println!("Features: {}, Target index: {}", n_features, n_features);
 
-    // Configure the Lion algorithm
+    let (normalized_data, min_vals, max_vals) = normalize_data(&valid_data);
+
+    // Convert back to references for optimization
+    let normalized_refs: Vec<_> = normalized_data.iter().collect();
+
+    // We use: params[0] = bias, params[1..=n_features] = weights
+    let dim = n_features + 1;
+
+    // Configure the Lion algorithm with symmetric bounds to allow negative weights + bias
     let config = LionConfig::new(dim)
-        .with_bounds(vec![-1.0; dim], vec![1.0; dim])
+        .with_bounds(vec![-2.0; dim], vec![2.0; dim])
         .with_cubs_per_generation(16)
         .with_max_generations(100)
         .with_maturity_age(3)
@@ -125,30 +187,30 @@ fn main() -> Result<(), Box<dyn Error>> {
         .with_mutation_prob(0.4)
         .with_seed(42);
 
-    // Define the objective function: minimize MSE (Mean Squared Error)
+    // Define the objective function: minimize MSE (Mean Squared Error) on normalized data
     let objective = |params: &[f64]| -> f64 {
         let mut mse = 0.0;
         let mut count = 0;
 
-        for row in &valid_data {
+        let bias = params[0];
+
+        for row in &normalized_refs {
             // Extract features (all columns except the last)
             let features = &row[..n_features];
-            // Extract target (last column)
+            // Extract target (last column) - normalized
             let target = row[n_features];
 
-            // Compute prediction: sum of (param[i] * feature[i])
-            let mut pred = 0.0;
+            // prediction = bias + Σ w_i * x_i
+            let mut pred = bias;
             for (i, &feature) in features.iter().enumerate() {
-                pred += params[i] * feature;
+                pred += params[i + 1] * feature;
             }
 
-            // Accumulate squared error
             let err = target - pred;
             mse += err * err;
             count += 1;
         }
 
-        // Return average MSE
         if count > 0 {
             mse / count as f64
         } else {
@@ -157,41 +219,59 @@ fn main() -> Result<(), Box<dyn Error>> {
     };
 
     // Run the Lion algorithm
-    println!("\nRunning Lion algorithm optimization...");
+    println!("Running Lion algorithm optimization on normalized data...");
     let result = lion_optimize(&config, objective);
 
     // Print results
     println!("\n=== Lion Algorithm Optimization Results ===");
-    println!("Best fitness (MSE): {:.6}", result.best_fitness);
+    println!(
+        "Best fitness (MSE on normalized data): {:.6}",
+        result.best_fitness
+    );
     println!("Generations completed: {}", result.generations);
-    println!("\nOptimized regression coefficients:");
-    for (i, &coeff) in result.best_position.iter().enumerate() {
-        println!("  Feature {}: {:.6}", i + 1, coeff);
+    println!("\nOptimized regression parameters (on normalized data):");
+    println!("  Bias: {:.6}", result.best_position[0]);
+    for i in 0..n_features {
+        println!(
+            "  Feature {} weight: {:.6}",
+            i + 1,
+            result.best_position[i + 1]
+        );
     }
 
-    // Compute regression metrics on the full dataset
-    let (mae, rmse, r_squared) = compute_metrics(&valid_data, &result.best_position, n_features);
+    // Compute regression metrics on the normalized dataset
+    let (mae, rmse, r_squared) =
+        compute_metrics(&normalized_refs, &result.best_position, n_features);
 
     // Print regression performance metrics
-    println!("\n=== Regression Performance Metrics ===");
+    println!("\n=== Regression Performance Metrics (on normalized data) ===");
     println!("Mean Absolute Error (MAE): {:.6}", mae);
     println!("Root Mean Squared Error (RMSE): {:.6}", rmse);
-    println!("R² (Coefficient of Determination): {:.6}", r_squared);
+    println!("R^2 (Coefficient of Determination): {:.6}", r_squared);
 
-    // Show predictions on a sample of data points
-    println!("\nSample predictions (first 10 samples):");
+    // Show predictions on a sample of data points (display in original scale)
+    println!("\nSample predictions (first 10 samples, in original scale):");
     println!("Target\tPredicted\tError");
-    for row in valid_data.iter().take(10) {
+    let target_min = min_vals[n_features];
+    let target_max = max_vals[n_features];
+    for row in normalized_refs.iter().take(10) {
         let features = &row[..n_features];
-        let target = row[n_features];
+        let target_normalized = row[n_features];
 
-        let mut pred = 0.0;
+        // Compute prediction in normalized scale
+        let mut pred_normalized = result.best_position[0];
         for (i, &feature) in features.iter().enumerate() {
-            pred += result.best_position[i] * feature;
+            pred_normalized += result.best_position[i + 1] * feature;
         }
 
-        let error = (target - pred).abs();
-        println!("{:.2}\t{:.2}\t\t{:.2}", target, pred, error);
+        // Denormalize to original scale
+        let target_original = denormalize_target(target_normalized, target_min, target_max);
+        let pred_original = denormalize_target(pred_normalized, target_min, target_max);
+        let error = (target_original - pred_original).abs();
+        println!(
+            "{:.2}\t{:.2}\t\t{:.2}",
+            target_original, pred_original, error
+        );
     }
 
     Ok(())

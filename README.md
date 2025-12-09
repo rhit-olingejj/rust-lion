@@ -7,4 +7,6 @@
 The Lion Algorithm models social behaviors of lions, such as pride formation, nomadic exploration, and territorial defense, to solve optimization problems efficiently. 
 [Lion Algorithm](https://www.sciencedirect.com/science/article/pii/S2212017312005610?ref=pdf_download&fr=RR-2&rr=99ca054a098787ab)
 
+The sample airfoiol_self_noise.dat real world data file used to model and test the algorithm is a NASA data set obtained from a series of aerodynamic tests of airfoil blade sections
+
 - Execute a sample run with ```cargo run ```

@@ -211,7 +211,11 @@ where
         let best_male_candidate: Option<Lion> = male_cubs
             .iter()
             .filter(|c| c.age >= config.maturity_age && c.gender == Gender::Male)
-            .min_by(|a, b| a.fitness.partial_cmp(&b.fitness).unwrap_or(std::cmp::Ordering::Equal))
+            .min_by(|a, b| {
+                a.fitness
+                    .partial_cmp(&b.fitness)
+                    .unwrap_or(std::cmp::Ordering::Equal)
+            })
             .cloned();
 
         if let Some(candidate) = best_male_candidate {
@@ -225,7 +229,11 @@ where
         let best_female_candidate: Option<Lion> = female_cubs
             .iter()
             .filter(|c| c.age >= config.maturity_age && c.gender == Gender::Female)
-            .min_by(|a, b| a.fitness.partial_cmp(&b.fitness).unwrap_or(std::cmp::Ordering::Equal))
+            .min_by(|a, b| {
+                a.fitness
+                    .partial_cmp(&b.fitness)
+                    .unwrap_or(std::cmp::Ordering::Equal)
+            })
             .cloned();
 
         if let Some(candidate) = best_female_candidate {

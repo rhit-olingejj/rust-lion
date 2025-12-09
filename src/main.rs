@@ -1,9 +1,9 @@
-use rust_lion::{LionConfig, lion_optimize};
 use csv::ReaderBuilder;
+use rust_lion::{LionConfig, lion_optimize};
+use std::env;
+use std::error::Error;
 use std::fs::File;
 use std::path::Path;
-use std::error::Error;
-use std::env;
 
 /// Load tab-separated numeric data from a file.
 fn load_numeric_tsv<P: AsRef<Path>>(path: P) -> Result<Vec<Vec<f64>>, Box<dyn Error>> {
@@ -17,15 +17,57 @@ fn load_numeric_tsv<P: AsRef<Path>>(path: P) -> Result<Vec<Vec<f64>>, Box<dyn Er
 
     for result in rdr.records() {
         let record = result?;
-        let row: Result<Vec<f64>, _> = record
-            .iter()
-            .map(|field| field.parse::<f64>())
-            .collect();
+        let row: Result<Vec<f64>, _> = record.iter().map(|field| field.parse::<f64>()).collect();
 
         data.push(row?);
     }
 
     Ok(data)
+}
+
+/// Compute regression metrics: MAE, RMSE, and R².
+/// Returns (mae, rmse, r_squared)
+fn compute_metrics(data: &[&Vec<f64>], coefficients: &[f64], n_features: usize) -> (f64, f64, f64) {
+    let mut sum_abs_error = 0.0;
+    let mut sum_sq_error = 0.0;
+    let mut sum_target = 0.0;
+    let mut sum_sq_diff_from_mean = 0.0;
+
+    for row in data {
+        let features = &row[..n_features];
+        let target = row[n_features];
+
+        // Compute prediction
+        let mut pred = 0.0;
+        for (i, &feature) in features.iter().enumerate() {
+            pred += coefficients[i] * feature;
+        }
+
+        let error = target - pred;
+        sum_abs_error += error.abs();
+        sum_sq_error += error * error;
+        sum_target += target;
+    }
+
+    let n = data.len() as f64;
+    let mean_target = sum_target / n;
+
+    // Compute total sum of squares (for R²)
+    for row in data {
+        let target = row[n_features];
+        let diff = target - mean_target;
+        sum_sq_diff_from_mean += diff * diff;
+    }
+
+    let mae = sum_abs_error / n;
+    let rmse = (sum_sq_error / n).sqrt();
+    let r_squared = if sum_sq_diff_from_mean > 0.0 {
+        1.0 - (sum_sq_error / sum_sq_diff_from_mean)
+    } else {
+        0.0
+    };
+
+    (mae, rmse, r_squared)
 }
 
 /// Main entry point: loads dataset from command-line argument and optimizes multi-feature linear regression.
@@ -34,13 +76,11 @@ fn load_numeric_tsv<P: AsRef<Path>>(path: P) -> Result<Vec<Vec<f64>>, Box<dyn Er
 fn main() -> Result<(), Box<dyn Error>> {
     // Parse command-line arguments
     let args: Vec<String> = env::args().collect();
-    if args.len() < 2 {
-        eprintln!("Usage: {} <path_to_data_file>", args.get(0).unwrap_or(&"rust-lion".to_string()));
-        eprintln!("Example: {} airfoil_self_noise.dat", args.get(0).unwrap_or(&"rust-lion".to_string()));
-        return Err("Missing data file argument".into());
-    }
 
-    let file_path = &args[1];
+    let file_path: &Path = args
+        .get(1)
+        .map(Path::new)
+        .unwrap_or_else(|| Path::new("airfoil_self_noise.dat"));
 
     // Load the dataset
     let data = load_numeric_tsv(file_path)?;
@@ -61,10 +101,7 @@ fn main() -> Result<(), Box<dyn Error>> {
     let dim = n_features;
 
     // Filter rows with all numeric values
-    let valid_data: Vec<_> = data
-        .iter()
-        .filter(|row| row.len() >= n_features + 1)
-        .collect();
+    let valid_data: Vec<_> = data.iter().filter(|row| row.len() > n_features).collect();
 
     if valid_data.is_empty() {
         eprintln!("Error: No valid data rows found.");
@@ -72,7 +109,11 @@ fn main() -> Result<(), Box<dyn Error>> {
     }
 
     println!("Loaded {} valid samples from dataset.", valid_data.len());
-    println!("Features: {}, Target column: {}", n_features, n_features + 1);
+    println!(
+        "Features: {}, Target column: {}",
+        n_features,
+        n_features + 1
+    );
 
     // Configure the Lion algorithm
     let config = LionConfig::new(dim)
@@ -127,6 +168,15 @@ fn main() -> Result<(), Box<dyn Error>> {
     for (i, &coeff) in result.best_position.iter().enumerate() {
         println!("  Feature {}: {:.6}", i + 1, coeff);
     }
+
+    // Compute regression metrics on the full dataset
+    let (mae, rmse, r_squared) = compute_metrics(&valid_data, &result.best_position, n_features);
+
+    // Print regression performance metrics
+    println!("\n=== Regression Performance Metrics ===");
+    println!("Mean Absolute Error (MAE): {:.6}", mae);
+    println!("Root Mean Squared Error (RMSE): {:.6}", rmse);
+    println!("R² (Coefficient of Determination): {:.6}", r_squared);
 
     // Show predictions on a sample of data points
     println!("\nSample predictions (first 10 samples):");

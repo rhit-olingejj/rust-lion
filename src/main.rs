@@ -71,7 +71,8 @@ fn main() -> Result<(), Box<dyn Error>> {
         return Err("No valid data".into());
     }
 
-    println!("Loaded {} valid samples from airfoil dataset.", valid_data.len());
+    println!("Loaded {} valid samples from dataset.", valid_data.len());
+    println!("Features: {}, Target column: {}", n_features, n_features + 1);
 
     // Configure the Lion algorithm
     let config = LionConfig::new(dim)
@@ -89,7 +90,7 @@ fn main() -> Result<(), Box<dyn Error>> {
         let mut count = 0;
 
         for row in &valid_data {
-            // Extract features (first n_features columns)
+            // Extract features (all columns except the last)
             let features = &row[..n_features];
             // Extract target (last column)
             let target = row[n_features];
@@ -123,9 +124,8 @@ fn main() -> Result<(), Box<dyn Error>> {
     println!("Best fitness (MSE): {:.6}", result.best_fitness);
     println!("Generations completed: {}", result.generations);
     println!("\nOptimized regression coefficients:");
-    let feature_names = ["Frequency", "Angle", "Chord Length", "Velocity", "Displacement Thickness"];
     for (i, &coeff) in result.best_position.iter().enumerate() {
-        println!("  {}: {:.6}", feature_names[i], coeff);
+        println!("  Feature {}: {:.6}", i + 1, coeff);
     }
 
     // Show predictions on a sample of data points

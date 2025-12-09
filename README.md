@@ -103,7 +103,7 @@ The library has been optimized for efficiency:
 
 ## Data Source
 The included `airfoil_self_noise.dat` is a NASA dataset from aerodynamic tests of airfoil blade sections.  
-This real-world dataset is ideal for testing regression and optimization capabilities.
+This non-linear real-world dataset tests the algorithm.
 
 ## Quick Start
 ```bash

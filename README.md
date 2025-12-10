@@ -92,8 +92,9 @@ The library has been optimized for efficiency:
 - **Minimal allocations**: Reuses vectors and leverages Rust's move semantics
 
 ## Data Source
-The included `airfoil_self_noise.dat` is a NASA dataset from aerodynamic tests of airfoil blade sections.  
+The included [`airfoil_self_noise.dat`](https://archive.ics.uci.edu/dataset/291/airfoil+self+noise) is a NASA dataset from aerodynamic tests of airfoil blade sections.  
 This non-linear real-world dataset tests the algorithm.
+The included [`energy_efficiency_y1.dat`](https://archive.ics.uci.edu/dataset/242/energy+efficiency) is a UC Irving dataset looking at the heating and cooling requirements of buildings
 
 ## Quick Start
 Running the Program

@@ -1,9 +1,11 @@
 use csv::ReaderBuilder;
-use rust_lion::{LionConfig, lion_optimize};
+use rust_lion::{lion_optimize, LionConfig};
+use std::collections::HashMap;
 use std::env;
 use std::error::Error;
 use std::fs::File;
 use std::path::{Path, PathBuf};
+use std::str::FromStr;
 
 /// Load tab-separated numeric data from a file.
 fn load_numeric_tsv<P: AsRef<Path>>(path: P) -> Result<Vec<Vec<f64>>, Box<dyn Error>> {
@@ -125,7 +127,7 @@ fn compute_metrics(data: &[&Vec<f64>], coefficients: &[f64], n_features: usize) 
 }
 
 /// Main entry point: loads dataset from command-line argument and optimizes multi-feature linear regression.
-/// Usage: cargo run -- <path_to_data_file>
+/// Usage: cargo run -- <path_to_data_file> [--key=value ...]
 /// Last column is treated as the target; all preceding columns are features.
 fn main() -> Result<(), Box<dyn Error>> {
     // Parse command-line arguments
@@ -155,7 +157,7 @@ fn main() -> Result<(), Box<dyn Error>> {
     // All columns except the last
     let n_features = n_cols - 1;
 
-    // Normalize data
+    // Keep only rows with enough columns
     let valid_data: Vec<Vec<f64>> = data
         .into_iter()
         .filter(|row| row.len() > n_features)
@@ -169,6 +171,7 @@ fn main() -> Result<(), Box<dyn Error>> {
     println!("Loaded {} valid samples from dataset.", valid_data.len());
     println!("Features: {}, Target index: {}", n_features, n_features);
 
+    // Normalize data
     let (normalized_data, min_vals, max_vals) = normalize_data(&valid_data);
 
     // Convert back to references for optimization
@@ -177,15 +180,50 @@ fn main() -> Result<(), Box<dyn Error>> {
     // We use: params[0] = bias, params[1..=n_features] = weights
     let dim = n_features + 1;
 
-    // Configure the Lion algorithm with symmetric bounds to allow negative weights + bias
+    // Parse optional command-line flags for Lion parameters
+    // Supported flags (defaults shown):
+    // --generations=100 --cubs=16 --maturity=3 --crossover1=0.3 --crossover2=0.6
+    // --mutation=0.4 --seed=42 --bound-min=-2.0 --bound-max=2.0
+    let mut flag_map: HashMap<String, String> = HashMap::new();
+
+    for arg in args.iter().skip(2) {
+        if let Some(stripped) = arg.strip_prefix("--")
+            && let Some((key, val)) = stripped.split_once('=')
+        {
+            flag_map.insert(key.to_string(), val.to_string());
+        }
+    }
+
+    // Helper to parse typed flags with a default fallback.
+    fn get_flag<T: FromStr + Copy>(
+    map: &HashMap<String, String>,
+    key: &str,
+    default: T,
+    ) -> T {
+        map.get(key)
+            .and_then(|s| s.parse::<T>().ok())
+            .unwrap_or(default)
+    }
+
+    let max_generations: u32       = get_flag(&flag_map, "generations", 100);
+    let cubs_per_generation: usize = get_flag(&flag_map, "cubs", 16);
+    let maturity_age: u32          = get_flag(&flag_map, "maturity", 3);
+    let crossover1: f64            = get_flag(&flag_map, "crossover1", 0.3);
+    let crossover2: f64            = get_flag(&flag_map, "crossover2", 0.6);
+    let mutation_prob: f64         = get_flag(&flag_map, "mutation", 0.4);
+    let bound_min: f64             = get_flag(&flag_map, "bound-min", -2.0);
+    let bound_max: f64             = get_flag(&flag_map, "bound-max",  2.0);
+
+
+
+    // Configure the Lion algorithm with the parsed or default values
     let config = LionConfig::new(dim)
-        .with_bounds(vec![-2.0; dim], vec![2.0; dim])
-        .with_cubs_per_generation(16)
-        .with_max_generations(100)
-        .with_maturity_age(3)
-        .with_crossover_probs(0.3, 0.6)
-        .with_mutation_prob(0.4)
-        .with_seed(42);
+        .with_bounds(vec![bound_min; dim], vec![bound_max; dim])
+        .with_cubs_per_generation(cubs_per_generation)
+        .with_max_generations(max_generations)
+        .with_maturity_age(maturity_age)
+        .with_crossover_probs(crossover1, crossover2)
+        .with_mutation_prob(mutation_prob);
 
     // Define the objective function: minimize MSE (Mean Squared Error) on normalized data
     let objective = |params: &[f64]| -> f64 {

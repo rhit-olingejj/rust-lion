@@ -75,7 +75,7 @@ The program prints:
 - **Regression Performance Metrics**:
   - **MAE** (Mean Absolute Error): Average absolute difference between predictions and targets
   - **RMSE** (Root Mean Squared Error): Standard deviation of prediction errors
-  - **R²** (Coefficient of Determination): Proportion of variance explained (0-1, higher is better)
+  - **R^2** (Coefficient of Determination): Proportion of variance explained (0-1, higher is better)
 - **Sample predictions** on the first 10 rows (target, predicted, absolute error)
 
 ### Assumptions
@@ -83,16 +83,6 @@ The program prints:
 2. Rows with fewer columns than expected are filtered out
 3. Linear regression model: `y = w₁·x₁ + w₂·x₂ + ... + wₙ·xₙ`
 4. Objective: Minimize Mean Squared Error (MSE) across all samples
-5. The Lion Algorithm is configured with sensible defaults for coefficient optimization
-
-### Configuration (in main.rs)
-- **Bounds**: [-1.0, 1.0] per coefficient (normalized scale)
-- **Generations**: 100
-- **Cubs per generation**: 16
-- **Mutation probability**: 0.4
-- **Crossover probabilities**: (0.3, 0.6)
-- **Maturity age**: 3 generations
-- **RNG seed**: 42 (fixed for reproducibility)
 
 ## Performance Improvements
 The library has been optimized for efficiency:
@@ -106,13 +96,45 @@ The included `airfoil_self_noise.dat` is a NASA dataset from aerodynamic tests o
 This non-linear real-world dataset tests the algorithm.
 
 ## Quick Start
-```bash
-# Build
-cargo build --release
+Running the Program
 
-# Run on sample data
-cargo run --release -- airfoil_self_noise.dat
+Run the optimizer using the default dataset (airfoil_self_noise.dat):
 
-# Run on custom data
-cargo run --release -- my_dataset.tsv
-```
+```cargo run```
+
+
+Run the optimizer with a custom dataset:
+
+```cargo run -- path/to/datafile.dat```
+
+
+The dataset must be tab-separated, where:
+
+All columns except the last are treated as input features
+
+The last column is treated as the regression target
+
+Configuration Parameters
+
+You can customize the Lion Algorithm using flags in the following format:
+
+```--key=value```
+
+
+Example:
+
+```cargo run -- airfoil_self_noise.dat --generations=200 --mutation=0.2```
+
+## Available Parameters
+
+| Parameter        | Default | Description                                   |
+|------------------|---------|-----------------------------------------------|
+| `--generations=N` | `100`   | Number of Lion Algorithm generations.         |
+| `--cubs=N`        | `16`    | Number of cubs produced per generation.       |
+| `--maturity=N`    | `3`     | Maturity age for adult lions.                 |
+| `--crossover1=P`  | `0.3`   | First crossover probability.                  |
+| `--crossover2=P`  | `0.6`   | Second crossover probability.                 |
+| `--mutation=P`    | `0.4`   | Mutation probability.                         |
+| `--bound-min=X`   | `-2.0`  | Minimum bound for weights and bias.           |
+| `--bound-max=X`   | `2.0`   | Maximum bound for weights and bias.           |
+| `--seed=N`        | `42`    | Optional random seed for reproducible results.|

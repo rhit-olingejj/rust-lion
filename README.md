@@ -10,9 +10,9 @@ The Lion Algorithm models social behaviors of lions, such as pride formation, no
 
 ## Key Features
 - **Efficient optimization**: Reduced cloning via reference-based candidate selection and smart best tracking
-- **Idiomatic Rust**: Uses `sort_unstable_by` with `total_cmp` for fast, stable sorting
+- **Idiomatic Rust**: Uses `sort_by` with `total_cmp` for fast, stable sorting
 - **Configurable**: Flexible algorithm parameters (bounds, generations, mutation rates, etc.)
-- **Multi-feature linear regression**: Driver program supports any TSV dataset with automatic feature detection
+- **Multi-feature linear regression**: Driver program supports any numeric tab seperated dataset assuming the last column is the target and the data is well formed
 
 ## Library Usage
 
@@ -40,7 +40,7 @@ fn main() {
 
 ## Driver Program: Linear Regression via Lion Algorithm
 
-The `main.rs` driver program uses the Lion Algorithm to optimize multi-feature linear regression coefficients on arbitrary TSV datasets.
+The `main.rs` driver program uses the Lion Algorithm to optimize multi-feature linear regression coefficients on arbitrary numeric tab seperated datasets.
 
 ### Usage
 ```bash
@@ -53,9 +53,9 @@ cargo run -- airfoil_self_noise.dat
 ```
 
 ### Input Format
-- **Tab-separated values (TSV)** with numeric data only
+- **Tab-separated values** with numeric data only
 - **Last column**: Target variable (y-values to predict)
-- **All preceding columns**: Features (x₁, x₂, ..., xₙ)
+- **All preceding columns**: Features (x1, x2, ..., xn)
 - **No headers** expected
 
 ### Example Dataset
@@ -79,29 +79,27 @@ The program prints:
 - **Sample predictions** on the first 10 rows (target, predicted, absolute error)
 
 ### Assumptions
-1. All data is numeric (no missing values or non-numeric entries)
+1. All data is numeric no missing values or non-numeric entries
 2. Rows with fewer columns than expected are filtered out
-3. Linear regression model: `y = w₁·x₁ + w₂·x₂ + ... + wₙ·xₙ`
+3. Linear regression model: `y = w1 * x1 + w2 * x2 + ... + wn * xn`
 4. Objective: Minimize Mean Squared Error (MSE) across all samples
 
 ## Performance Improvements
 The library has been optimized for efficiency:
 - **Reference-based candidate selection**: Avoids cloning entire cub pools during territorial takeover
 - **Smart best-tracking**: Iterates references and clones only the champion lion when improved
-- **Idiomatic sorting**: Uses `sort_unstable_by` with `f64::total_cmp` for speed and correctness
 - **Minimal allocations**: Reuses vectors and leverages Rust's move semantics
 
 ## Data Source
-The included [`airfoil_self_noise.dat`](https://archive.ics.uci.edu/dataset/291/airfoil+self+noise) is a NASA dataset from aerodynamic tests of airfoil blade sections.  
-This non-linear real-world dataset tests the algorithm.
-The included [`energy_efficiency_y1.dat`](https://archive.ics.uci.edu/dataset/242/energy+efficiency) is a UC Irving dataset looking at the heating and cooling requirements of buildings
+The included [`airfoil_self_noise.dat`](https://archive.ics.uci.edu/dataset/291/airfoil+self+noise) is a NASA dataset from aerodynamic tests of airfoil blade sections that is highly non-linear.
+The included [`energy_efficiency_y1.dat`](https://archive.ics.uci.edu/dataset/242/energy+efficiency) is a UC Irving dataset looking at the heating and cooling requirements of buildings that is linear.
 
 ## Quick Start
 Running the Program
 
-Run the optimizer using the default dataset (airfoil_self_noise.dat):
+Run the optimizer using the default dataset, energy_efficiency_y1.dat:
 
-```cargo run```
+```cargo run --release```
 
 
 Run the optimizer with a custom dataset:
@@ -138,4 +136,4 @@ Example:
 | `--mutation=P`    | `0.4`   | Mutation probability.                         |
 | `--bound-min=X`   | `-2.0`  | Minimum bound for weights and bias.           |
 | `--bound-max=X`   | `2.0`   | Maximum bound for weights and bias.           |
-| `--seed=N`        | `42`    | Optional random seed for reproducible results.|
+| `--seed=N`        | `42`    | Optional random seed for reproducible results |

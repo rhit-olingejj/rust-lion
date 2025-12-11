@@ -132,11 +132,11 @@ fn main() -> Result<(), Box<dyn Error>> {
     // Parse command-line arguments
     let args: Vec<String> = env::args().collect();
 
-    // Default to airfoil_self_noise.dat in current directory
+    // Default to energy_efficiency_y1.dat in current directory
     let file_path: PathBuf = args
         .get(1)
         .map(PathBuf::from)
-        .unwrap_or_else(|| PathBuf::from("airfoil_self_noise.dat"));
+        .unwrap_or_else(|| PathBuf::from("energy_efficiency_y1.dat"));
 
     // Load the dataset
     let data = load_numeric_tsv(&file_path)?;
@@ -215,7 +215,7 @@ fn main() -> Result<(), Box<dyn Error>> {
         .with_crossover_probs(crossover1, crossover2)
         .with_mutation_prob(mutation_prob);
 
-    // Define the objective function: minimize Mean Squared Error on normalized data
+    // Define the objective function: to minimize Mean Squared Error
     let objective = |params: &[f64]| -> f64 {
         let mut mse = 0.0;
         let mut count = 0;
@@ -228,7 +228,7 @@ fn main() -> Result<(), Box<dyn Error>> {
             // Extract target
             let target = row[n_features];
 
-            // prediction = bias + sum w_i * x_i
+            // prediction = bias + sum wi * xi
             let mut pred = bias;
             for (i, &feature) in features.iter().enumerate() {
                 pred += params[i + 1] * feature;
@@ -251,13 +251,13 @@ fn main() -> Result<(), Box<dyn Error>> {
     let result = lion_optimize(&config, objective);
 
     // Print results
-    println!("\n=== Lion Algorithm Optimization Results ===");
+    println!("\nLion Algorithm Optimization Results");
     println!(
         "Best fitness (MSE on normalized data): {:.6}",
         result.best_fitness
     );
     println!("Generations completed: {}", result.generations);
-    println!("\nOptimized regression parameters (on normalized data):");
+    println!("\nOptimized regression parameters:");
     println!("  Bias: {:.6}", result.best_position[0]);
     for i in 0..n_features {
         println!(
@@ -272,7 +272,7 @@ fn main() -> Result<(), Box<dyn Error>> {
         compute_metrics(&normalized_refs, &result.best_position, n_features);
 
     // Print regression performance metrics
-    println!("\n=== Regression Performance Metrics (on normalized data) ===");
+    println!("\nRegression Performance Metrics");
     println!("Mean Absolute Error (MAE): {:.6}", mae);
     println!("Root Mean Squared Error (RMSE): {:.6}", rmse);
     println!("R^2 (Coefficient of Determination): {:.6}", r_squared);

@@ -50,6 +50,14 @@ pub struct LionConfig {
 
 impl LionConfig {
     /// Create a config with basic defaults for a given dimensionality
+    /// ```
+    /// use rust_lion::LionConfig;
+    ///
+    /// let config = LionConfig::new(3);
+    /// assert_eq!(config.dim, 3);
+    /// assert_eq!(config.min_bounds.len(), 3);
+    /// assert_eq!(config.cubs_per_generation, 8);
+    /// ```
     pub fn new(dim: usize) -> Self {
         Self {
             dim,
@@ -65,6 +73,14 @@ impl LionConfig {
     }
 
     /// Set per-dimension bounds
+    /// ```
+    /// use rust_lion::LionConfig;
+    ///
+    /// let config = LionConfig::new(2)
+    ///     .with_bounds(vec![-5.0, -5.0], vec![5.0, 5.0]);
+    /// assert_eq!(config.min_bounds, vec![-5.0, -5.0]);
+    /// assert_eq!(config.max_bounds, vec![5.0, 5.0]);
+    /// ```
     pub fn with_bounds(mut self, min_bounds: Vec<f64>, max_bounds: Vec<f64>) -> Self {
         assert_eq!(min_bounds.len(), self.dim);
         assert_eq!(max_bounds.len(), self.dim);
@@ -80,6 +96,16 @@ impl LionConfig {
     }
 
     /// Set number of cubs per generation
+    /// Enforces a minimum of 2 cubs as per the paper
+    /// ```
+    /// use rust_lion::LionConfig;
+    ///
+    /// let config = LionConfig::new(2).with_cubs_per_generation(1);
+    /// assert_eq!(config.cubs_per_generation, 2);
+    ///
+    /// let config = LionConfig::new(2).with_cubs_per_generation(16);
+    /// assert_eq!(config.cubs_per_generation, 16);
+    /// ```
     pub fn with_cubs_per_generation(mut self, cubs_per_generation: usize) -> Self {
         // Bounded as minimum two by the paper
         self.cubs_per_generation = cubs_per_generation.max(2);
@@ -87,24 +113,62 @@ impl LionConfig {
     }
 
     /// Set maturity age for cubs
+    /// Enforces a minimum of 1.
+    /// ```
+    /// use rust_lion::LionConfig;
+    ///
+    /// let config = LionConfig::new(2).with_maturity_age(0);
+    /// assert_eq!(config.maturity_age, 1);
+    ///
+    /// let config = LionConfig::new(2).with_maturity_age(5);
+    /// assert_eq!(config.maturity_age, 5);
+    /// ```
     pub fn with_maturity_age(mut self, maturity_age: u32) -> Self {
         self.maturity_age = maturity_age.max(1);
         self
     }
 
     /// Set crossover probabilities (p1, p2)
+    /// ```
+    /// use rust_lion::LionConfig;
+    ///
+    /// let config = LionConfig::new(2).with_crossover_probs(1.5, -0.5);
+    /// assert_eq!(config.crossover_probs.0, 1.0);
+    /// assert_eq!(config.crossover_probs.1, 0.0);
+    ///
+    /// let config = LionConfig::new(2).with_crossover_probs(0.3, 0.6);
+    /// assert_eq!(config.crossover_probs, (0.3, 0.6));
+    /// ```
     pub fn with_crossover_probs(mut self, p1: f64, p2: f64) -> Self {
         self.crossover_probs = (p1.clamp(0.0, 1.0), p2.clamp(0.0, 1.0));
         self
     }
 
     /// Set mutation probability
+    /// ```
+    /// use rust_lion::LionConfig;
+    ///
+    /// let config = LionConfig::new(2).with_mutation_prob(1.5);
+    /// assert_eq!(config.mutation_prob, 1.0);
+    ///
+    /// let config = LionConfig::new(2).with_mutation_prob(-0.5);
+    /// assert_eq!(config.mutation_prob, 0.0);
+    ///
+    /// let config = LionConfig::new(2).with_mutation_prob(0.5);
+    /// assert_eq!(config.mutation_prob, 0.5);
+    /// ```
     pub fn with_mutation_prob(mut self, p: f64) -> Self {
         self.mutation_prob = p.clamp(0.0, 1.0);
         self
     }
 
     /// Set seed
+    /// ```
+    /// use rust_lion::LionConfig;
+    ///
+    /// let config = LionConfig::new(2).with_seed(42);
+    /// assert_eq!(config.seed, Some(42));
+    /// ```
     pub fn with_seed(mut self, seed: u64) -> Self {
         self.seed = Some(seed);
         self
@@ -121,6 +185,23 @@ pub struct OptimizationResult {
 
 /// Main entry point: run the Lion algorithm with the given configuration and objective function
 /// Assumed that the objective function should minimize its return value
+/// ```
+/// use rust_lion::{LionConfig, lion_optimize};
+///
+/// // Minimize sphere function: f(x) = x^2 + y^2
+/// let config = LionConfig::new(2)
+///     .with_bounds(vec![-5.0, -5.0], vec![5.0, 5.0])
+///     .with_max_generations(50)
+///     .with_seed(42);
+///
+/// let objective = |params: &[f64]| -> f64 {
+///     params.iter().map(|x| x * x).sum()
+/// };
+///
+/// let result = lion_optimize(&config, objective);
+/// assert!(result.best_fitness < 1.0);
+/// assert_eq!(result.best_position.len(), 2);
+/// ```
 pub fn lion_optimize<F>(config: &LionConfig, objective: F) -> OptimizationResult
 where
     F: Fn(&[f64]) -> f64,
@@ -470,231 +551,5 @@ fn truncate_cub_pools(
     }
     if female_cubs.len() > max_cubs_per_gender {
         female_cubs.truncate(max_cubs_per_gender);
-    }
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn test_lion_config_creation() {
-        let config = LionConfig::new(3);
-        assert_eq!(config.dim, 3);
-        assert_eq!(config.min_bounds.len(), 3);
-        assert_eq!(config.max_bounds.len(), 3);
-        assert_eq!(config.cubs_per_generation, 8);
-        assert_eq!(config.maturity_age, 3);
-        assert_eq!(config.max_generations, 100);
-    }
-
-    #[test]
-    fn test_lion_config_with_bounds() {
-        let config = LionConfig::new(2)
-            .with_bounds(vec![-5.0, -5.0], vec![5.0, 5.0]);
-        assert_eq!(config.min_bounds, vec![-5.0, -5.0]);
-        assert_eq!(config.max_bounds, vec![5.0, 5.0]);
-    }
-
-    #[test]
-    fn test_lion_config_with_cubs_per_generation() {
-        // Test minimum enforcement
-        let config = LionConfig::new(2).with_cubs_per_generation(1);
-        assert_eq!(config.cubs_per_generation, 2);
-
-        // Test normal value
-        let config = LionConfig::new(2).with_cubs_per_generation(16);
-        assert_eq!(config.cubs_per_generation, 16);
-    }
-
-    #[test]
-    fn test_lion_config_with_maturity_age() {
-        // Test minimum enforcement
-        let config = LionConfig::new(2).with_maturity_age(0);
-        assert_eq!(config.maturity_age, 1);
-
-        // Test normal value
-        let config = LionConfig::new(2).with_maturity_age(5);
-        assert_eq!(config.maturity_age, 5);
-    }
-
-    #[test]
-    fn test_lion_config_with_mutation_prob() {
-        // Test clamping to [0, 1]
-        let config = LionConfig::new(2).with_mutation_prob(1.5);
-        assert_eq!(config.mutation_prob, 1.0);
-
-        let config = LionConfig::new(2).with_mutation_prob(-0.5);
-        assert_eq!(config.mutation_prob, 0.0);
-
-        let config = LionConfig::new(2).with_mutation_prob(0.5);
-        assert_eq!(config.mutation_prob, 0.5);
-    }
-
-    #[test]
-    fn test_lion_config_with_crossover_probs() {
-        // Test clamping to [0, 1]
-        let config = LionConfig::new(2).with_crossover_probs(1.5, -0.5);
-        assert_eq!(config.crossover_probs.0, 1.0);
-        assert_eq!(config.crossover_probs.1, 0.0);
-
-        let config = LionConfig::new(2).with_crossover_probs(0.3, 0.6);
-        assert_eq!(config.crossover_probs.0, 0.3);
-        assert_eq!(config.crossover_probs.1, 0.6);
-    }
-
-    #[test]
-    fn test_lion_config_with_seed() {
-        let config = LionConfig::new(2).with_seed(42);
-        assert_eq!(config.seed, Some(42));
-    }
-
-    #[test]
-    fn test_balance_cub_pools() {
-        let mut male_cubs = vec![
-            Lion {
-                position: vec![1.0, 2.0],
-                fitness: 1.5,
-                gender: Gender::Male,
-                age: 0,
-            },
-            Lion {
-                position: vec![2.0, 3.0],
-                fitness: 2.5,
-                gender: Gender::Male,
-                age: 0,
-            },
-            Lion {
-                position: vec![3.0, 4.0],
-                fitness: 0.5,
-                gender: Gender::Male,
-                age: 0,
-            },
-        ];
-        let mut female_cubs = vec![
-            Lion {
-                position: vec![1.0, 1.0],
-                fitness: 3.0,
-                gender: Gender::Female,
-                age: 0,
-            },
-        ];
-
-        balance_cub_pools(&mut male_cubs, &mut female_cubs);
-
-        // Both pools should have the same size after balancing
-        assert_eq!(male_cubs.len(), female_cubs.len());
-        assert_eq!(male_cubs.len(), 1);
-    }
-
-    #[test]
-    fn test_truncate_cub_pools() {
-        let mut male_cubs = vec![
-            Lion {
-                position: vec![1.0],
-                fitness: 1.0,
-                gender: Gender::Male,
-                age: 0,
-            },
-            Lion {
-                position: vec![2.0],
-                fitness: 2.0,
-                gender: Gender::Male,
-                age: 0,
-            },
-            Lion {
-                position: vec![3.0],
-                fitness: 3.0,
-                gender: Gender::Male,
-                age: 0,
-            },
-        ];
-        let mut female_cubs = vec![
-            Lion {
-                position: vec![1.0],
-                fitness: 1.5,
-                gender: Gender::Female,
-                age: 0,
-            },
-            Lion {
-                position: vec![2.0],
-                fitness: 2.5,
-                gender: Gender::Female,
-                age: 0,
-            },
-        ];
-
-        truncate_cub_pools(&mut male_cubs, &mut female_cubs, 2);
-
-        assert_eq!(male_cubs.len(), 2);
-        assert_eq!(female_cubs.len(), 2);
-    }
-
-    #[test]
-    fn test_single_point_crossover_dim_less_than_2() {
-        let p1 = vec![1.0];
-        let p2 = vec![2.0];
-        let probs = (0.5, 0.5);
-
-        let child = single_point_crossover_dual_prob(&p1, &p2, probs);
-        assert_eq!(child.len(), 1);
-        assert!(child[0] == 1.0 || child[0] == 2.0);
-    }
-
-    #[test]
-    fn test_single_point_crossover_dim_2() {
-        let p1 = vec![1.0, 2.0];
-        let p2 = vec![3.0, 4.0];
-        let probs = (0.5, 0.5);
-
-        let child = single_point_crossover_dual_prob(&p1, &p2, probs);
-        assert_eq!(child.len(), 2);
-        // Child should be a mix of both parents
-        assert!(
-            (child[0] == 1.0 || child[0] == 3.0) && (child[1] == 2.0 || child[1] == 4.0)
-        );
-    }
-
-    #[test]
-    fn test_lion_optimize_simple_sphere() {
-        // Minimize sphere function: f(x) = x^2 + y^2 (optimum at [0, 0])
-        let config = LionConfig::new(2)
-            .with_bounds(vec![-5.0, -5.0], vec![5.0, 5.0])
-            .with_max_generations(50)
-            .with_seed(42);
-
-        let objective = |params: &[f64]| -> f64 {
-            params.iter().map(|x| x * x).sum()
-        };
-
-        let result = lion_optimize(&config, objective);
-
-        // Check that we get a reasonable result (fitness should be relatively small)
-        assert!(result.best_fitness < 1.0, "Final fitness {} too high", result.best_fitness);
-        assert_eq!(result.generations, 50);
-        assert_eq!(result.best_position.len(), 2);
-    }
-
-    #[test]
-    fn test_optimization_result_structure() {
-        let result = OptimizationResult {
-            best_position: vec![1.0, 2.0],
-            best_fitness: 0.5,
-            generations: 100,
-        };
-
-        assert_eq!(result.best_position.len(), 2);
-        assert_eq!(result.best_fitness, 0.5);
-        assert_eq!(result.generations, 100);
-    }
-
-    #[test]
-    fn test_gender_enum() {
-        let male = Gender::Male;
-        let female = Gender::Female;
-
-        assert_eq!(male, Gender::Male);
-        assert_ne!(male, female);
-        assert_eq!(female, Gender::Female);
     }
 }

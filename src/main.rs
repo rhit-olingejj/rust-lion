@@ -80,7 +80,6 @@ fn denormalize_target(normalized_val: f64, min_val: f64, max_val: f64) -> f64 {
 }
 
 /// Compute regression metrics: MAE, RMSE, and R^2.
-/// Returns (mae, rmse, r_squared)
 fn compute_metrics(data: &[&Vec<f64>], coefficients: &[f64], n_features: usize) -> (f64, f64, f64) {
     let mut sum_abs_error = 0.0;
     let mut sum_sq_error = 0.0;
@@ -93,7 +92,7 @@ fn compute_metrics(data: &[&Vec<f64>], coefficients: &[f64], n_features: usize) 
         let features = &row[..n_features];
         let target = row[n_features];
 
-        // prediction = bias + Σ w_i * x_i
+        // prediction = bias + sum w_i(offset by one because of bias term) * x_i
         let mut pred = bias;
         for (i, &feature) in features.iter().enumerate() {
             pred += coefficients[i + 1] * feature;
@@ -181,9 +180,6 @@ fn main() -> Result<(), Box<dyn Error>> {
     let dim = n_features + 1;
 
     // Parse optional command-line flags for Lion parameters
-    // Supported flags (defaults shown):
-    // --generations=100 --cubs=16 --maturity=3 --crossover1=0.3 --crossover2=0.6
-    // --mutation=0.4 --seed=42 --bound-min=-2.0 --bound-max=2.0
     let mut flag_map: HashMap<String, String> = HashMap::new();
 
     for arg in args.iter().skip(2) {
@@ -194,7 +190,7 @@ fn main() -> Result<(), Box<dyn Error>> {
         }
     }
 
-    // Helper to parse typed flags with a default fallback.
+    // Helper function to parse typed flags with a default fallback
     fn get_flag<T: FromStr + Copy>(
     map: &HashMap<String, String>,
     key: &str,
@@ -225,7 +221,7 @@ fn main() -> Result<(), Box<dyn Error>> {
         .with_crossover_probs(crossover1, crossover2)
         .with_mutation_prob(mutation_prob);
 
-    // Define the objective function: minimize MSE (Mean Squared Error) on normalized data
+    // Define the objective function: minimize Mean Squared Error on normalized data
     let objective = |params: &[f64]| -> f64 {
         let mut mse = 0.0;
         let mut count = 0;
@@ -233,12 +229,12 @@ fn main() -> Result<(), Box<dyn Error>> {
         let bias = params[0];
 
         for row in &normalized_refs {
-            // Extract features (all columns except the last)
+            // Extract features 
             let features = &row[..n_features];
-            // Extract target (last column) - normalized
+            // Extract target
             let target = row[n_features];
 
-            // prediction = bias + Σ w_i * x_i
+            // prediction = bias + sum w_i * x_i
             let mut pred = bias;
             for (i, &feature) in features.iter().enumerate() {
                 pred += params[i + 1] * feature;
@@ -287,8 +283,8 @@ fn main() -> Result<(), Box<dyn Error>> {
     println!("Root Mean Squared Error (RMSE): {:.6}", rmse);
     println!("R^2 (Coefficient of Determination): {:.6}", r_squared);
 
-    // Show predictions on a sample of data points (display in original scale)
-    println!("\nSample predictions (first 10 samples, in original scale):");
+    // Show predictions on a sample of data points
+    println!("\nSample predictions 10 predicitions:");
     println!("Target\tPredicted\tError");
     let target_min = min_vals[n_features];
     let target_max = max_vals[n_features];

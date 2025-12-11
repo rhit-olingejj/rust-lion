@@ -1,16 +1,15 @@
 //! Lion's Algorithm: a nature-inspired search / optimization algorithm.
-//!
 //! Simplified Rust implementation of:
 //! B. R. Rajakumar, "The Lion’s Algorithm: A New Nature-Inspired Search Algorithm"
 
-/// Gender of a lion (used to separate male/female cub groups).
+/// Gender of a lion used to separate male/female cub groups
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum Gender {
     Male,
     Female,
 }
 
-/// A single lion / solution.
+/// A single lion solution.
 #[derive(Clone, Debug)]
 struct Lion {
     position: Vec<f64>,
@@ -20,38 +19,37 @@ struct Lion {
 }
 
 /// Configuration parameters for the Lion algorithm.
-///
 /// You can construct it via `LionConfig::new(dim)`
 #[derive(Clone, Debug)]
 pub struct LionConfig {
     /// Dimensionality of the solution vector.
     pub dim: usize,
-    /// Lower bounds per dimension (length = dim).
+    /// Lower bounds per dimension
     pub min_bounds: Vec<f64>,
-    /// Upper bounds per dimension (length = dim).
+    /// Upper bounds per dimension
     pub max_bounds: Vec<f64>,
 
-    /// Number of cubs generated per generation (will be rounded up to even).
+    /// Number of cubs generated per generation will be rounded up to the nearest even number
     pub cubs_per_generation: usize,
 
-    /// Cub maturity age: after this, cubs can be considered for takeover.
+    /// Cub maturity age: after this, cubs can be considered for takeover
     pub maturity_age: u32,
 
-    /// Maximum number of generations.
+    /// Maximum number of generations
     pub max_generations: u32,
 
-    /// Crossover probabilities (p1, p2) for the dual-probability single-point crossover.
+    /// Crossover probabilities (p1, p2) for the dual-probability single-point crossover
     pub crossover_probs: (f64, f64),
 
-    /// Mutation probability per gene.
+    /// Mutation probability per gene
     pub mutation_prob: f64,
 
-    /// Seed for RNG (if None, will use entropy from OS).
+    /// Seed for running expirements with algorithm
     pub seed: Option<u64>,
 }
 
 impl LionConfig {
-    /// Create a config with basic defaults for a given dimensionality.
+    /// Create a config with basic defaults for a given dimensionality
     pub fn new(dim: usize) -> Self {
         Self {
             dim,
@@ -66,7 +64,7 @@ impl LionConfig {
         }
     }
 
-    /// Set per-dimension bounds.
+    /// Set per-dimension bounds
     pub fn with_bounds(mut self, min_bounds: Vec<f64>, max_bounds: Vec<f64>) -> Self {
         assert_eq!(min_bounds.len(), self.dim);
         assert_eq!(max_bounds.len(), self.dim);
@@ -75,38 +73,38 @@ impl LionConfig {
         self
     }
 
-    /// Set the number of generations.
+    /// Set the number of generations
     pub fn with_max_generations(mut self, max_generations: u32) -> Self {
         self.max_generations = max_generations;
         self
     }
 
-    /// Set number of cubs per generation.
+    /// Set number of cubs per generation
     pub fn with_cubs_per_generation(mut self, cubs_per_generation: usize) -> Self {
         // Bounded as minimum two by the paper
         self.cubs_per_generation = cubs_per_generation.max(2);
         self
     }
 
-    /// Set maturity age for cubs.
+    /// Set maturity age for cubs
     pub fn with_maturity_age(mut self, maturity_age: u32) -> Self {
         self.maturity_age = maturity_age.max(1);
         self
     }
 
-    /// Set crossover probabilities (p1, p2).
+    /// Set crossover probabilities (p1, p2)
     pub fn with_crossover_probs(mut self, p1: f64, p2: f64) -> Self {
-        self.crossover_probs = (p1, p2);
+        self.crossover_probs = (p1.clamp(0.0, 1.0), p2.clamp(0.0, 1.0));
         self
     }
 
-    /// Set mutation probability.
+    /// Set mutation probability
     pub fn with_mutation_prob(mut self, p: f64) -> Self {
         self.mutation_prob = p.clamp(0.0, 1.0);
         self
     }
 
-    /// Set random seed.
+    /// Set seed
     pub fn with_seed(mut self, seed: u64) -> Self {
         self.seed = Some(seed);
         self
@@ -121,14 +119,13 @@ pub struct OptimizationResult {
     pub generations: u32,
 }
 
-/// Main entry point: run the Lion algorithm with the given configuration and
-/// objective function.
-/// The objective function should minimize its return value.
+/// Main entry point: run the Lion algorithm with the given configuration and objective function
+/// Assumed that the objective function should minimize its return value
 pub fn lion_optimize<F>(config: &LionConfig, objective: F) -> OptimizationResult
 where
     F: Fn(&[f64]) -> f64,
 {
-    // Seed global RNG if configured
+    // Seed
     if let Some(seed) = config.seed {
         fastrand::seed(seed);
     }
@@ -140,7 +137,7 @@ where
         config.cubs_per_generation + 1
     };
 
-    // Pride Generation: initial male and female lions
+    // Pride Generation of initial male and female lions
     let mut male = random_lion(config, Gender::Male, &objective);
     let mut female = random_lion(config, Gender::Female, &objective);
 
@@ -155,14 +152,14 @@ where
         female.clone()
     };
 
-    // Internal breeding count tracking for female takeover-like behavior.
+    // Internal breeding count tracking for female takeover-like behavior
     let mut female_breed_count: u32 = 0;
-    // simplified analogue of Bstrength in the paper
+    // simplified analogue of B-strength in the paper
     let max_female_breed_strength: u32 = 5;
 
     for generation in 0..config.max_generations {
         // Mating Step
-        // Enforce that only Male–Female pairs mate.
+        // Enforce that only Male–Female pairs mate
         debug_assert_eq!(male.gender, Gender::Male, "Territorial male is not Male");
         debug_assert_eq!(
             female.gender,
@@ -206,8 +203,8 @@ where
             c.age += 1;
         }
 
-        // Territorial Takeover Step (simplified)
-        // Choose the best mature male candidate (clone only the selected candidate).
+        // Territorial Takeover Step
+        // Choose the best mature male candidate
         let best_male_candidate: Option<Lion> = male_cubs
             .iter()
             .filter(|c| c.age >= config.maturity_age && c.gender == Gender::Male)
@@ -225,7 +222,7 @@ where
             }
         }
 
-        // Choose the best mature female candidate similarly and apply takeover logic.
+        // Choose the best mature female candidate similarly and apply takeover logic
         let best_female_candidate: Option<Lion> = female_cubs
             .iter()
             .filter(|c| c.age >= config.maturity_age && c.gender == Gender::Female)
@@ -240,24 +237,24 @@ where
             debug_assert_eq!(candidate.gender, Gender::Female);
 
             if candidate.fitness < female.fitness {
-                // Found a stronger female, replace immediately.
+                // Found a stronger female, replace immediately
                 female = candidate;
                 female_breed_count = 0;
             } else {
-                // No better one; increment breed count.
+                // No better one; increment breed count
                 female_breed_count += 1;
                 if female_breed_count >= max_female_breed_strength {
-                    // Force takeover by the best candidate even if slightly worse.
+                    // Force takeover by the best candidate even if slightly worse
                     female = candidate;
                     female_breed_count = 0;
                 }
             }
         }
 
-        // Keep cub pools from exploding: truncate to maintain diversity
+        // To keep cub pools from exploding: truncate to maintain diversity
         truncate_cub_pools(&mut male_cubs, &mut female_cubs, cubs_per_generation);
 
-        // Track global best by iterating references; clone only when a better lion is found.
+        // Track global best by iterating references; clone only when a better lion is found
         for l in std::iter::once(&male)
             .chain(std::iter::once(&female))
             .chain(male_cubs.iter())
@@ -285,11 +282,6 @@ where
 }
 
 // Internal helpers
-/// Generate a random f64 in [min, max).
-fn random_in_range(min: f64, max: f64) -> f64 {
-    min + (max - min) * fastrand::f64()
-}
-
 /// Generate a random lion of the given gender
 fn random_lion<F>(config: &LionConfig, gender: Gender, objective: &F) -> Lion
 where
@@ -299,8 +291,7 @@ where
     for i in 0..config.dim {
         let min = config.min_bounds[i];
         let max = config.max_bounds[i];
-        let v = random_in_range(min, max);
-        pos.push(v);
+        pos.push(min + fastrand::f64() * (max - min));
     }
     let fitness = objective(&pos);
     Lion {
@@ -311,7 +302,7 @@ where
     }
 }
 
-/// Mate a male and female lion to produce cubs.
+/// Mate a male and female lion to produce cubs
 fn mate_and_generate_cubs<F>(
     config: &LionConfig,
     male: &Lion,
@@ -352,11 +343,8 @@ where
     cubs
 }
 
-/// Single-point crossover with two probability modes.
-///
-/// We pick a crossover point and then, depending on a random draw, either use
-/// parent1-head + parent2-tail or parent2-head + parent1-tail with different
-/// probabilities. If `dim < 2`, just return a random parent clone.
+/// Single-point crossover with two probability modes
+/// We pick a random crossover point and then, depending on a random number, either use parent1-head + parent2-tail or parent2-head + parent1-tail with different probabilities
 fn single_point_crossover_dual_prob(p1: &[f64], p2: &[f64], probs: (f64, f64)) -> Vec<f64> {
     let dim = p1.len();
     assert_eq!(p1.len(), p2.len());
@@ -392,14 +380,14 @@ fn single_point_crossover_dual_prob(p1: &[f64], p2: &[f64], probs: (f64, f64)) -
     child
 }
 
-/// Mutate a solution vector based on mutation probability.
+/// Mutate a solution vector based on mutation probability
 fn mutate_vector(x: &[f64], config: &LionConfig) -> Vec<f64> {
     let mut out = Vec::with_capacity(x.len());
     for (i, &v) in x.iter().enumerate() {
         if fastrand::f64() < config.mutation_prob {
             let min = config.min_bounds[i];
             let max = config.max_bounds[i];
-            out.push(random_in_range(min, max));
+            out.push(min + fastrand::f64() * (max - min));
         } else {
             out.push(v);
         }
@@ -409,19 +397,20 @@ fn mutate_vector(x: &[f64], config: &LionConfig) -> Vec<f64> {
 
 /// Keep male and female cub pools the same size by trimming the worse fitness from larger pool
 fn balance_cub_pools(male_cubs: &mut Vec<Lion>, female_cubs: &mut Vec<Lion>) {
-    // sort ascending by fitness (best first) using total order and an unstable sort
-    male_cubs.sort_unstable_by(|a, b| a.fitness.total_cmp(&b.fitness));
-    female_cubs.sort_unstable_by(|a, b| a.fitness.total_cmp(&b.fitness));
+    // sort ascending by fitness, best first, using total order
+    male_cubs.sort_by(|a, b| a.fitness.total_cmp(&b.fitness));
+    female_cubs.sort_by(|a, b| a.fitness.total_cmp(&b.fitness));
 
     let mut m = male_cubs.len();
     let mut f = female_cubs.len();
 
     while m > f {
-        // remove worst male
+        // remove worst males
         male_cubs.pop();
         m -= 1;
     }
     while f > m {
+        // remove worst females
         female_cubs.pop();
         f -= 1;
     }
@@ -440,7 +429,7 @@ fn pride_strength(male: &Lion, female: &Lion, male_cubs: &[Lion], female_cubs: &
     sum / count as f64
 }
 
-/// Territorial defense: a nomadic lion may invade and replace the male and kill cubs if it is stronger than both the male and the pride.
+/// Territorial defense: a nomadic lion may invade and replace the male and kill cubs if it is stronger than both the male and the pride
 fn territorial_defense<F>(
     config: &LionConfig,
     objective: &F,
@@ -451,14 +440,15 @@ fn territorial_defense<F>(
 ) where
     F: Fn(&[f64]) -> f64,
 {
-    // Generate a nomadic lion (always modeled as male in the paper).
+    // Generate a nomadic lion
     let mut nomad = random_lion(config, Gender::Male, objective);
+    // Enforce the nomadic lion is always male as modeled in the paper
     debug_assert_eq!(nomad.gender, Gender::Male);
 
     let pride_str = pride_strength(male, female, male_cubs, female_cubs);
 
     if nomad.fitness < male.fitness && nomad.fitness < pride_str {
-        // Nomad takes over: becomes new male, cubs are killed
+        // Models nomad takes over becomes new male, cubs are killed
         nomad.gender = Gender::Male;
         *male = nomad;
         male_cubs.clear();
@@ -466,19 +456,245 @@ fn territorial_defense<F>(
     }
 }
 
-/// Prevent cub pool from growing without bound.
+/// Prevent cub pool from growing without bound
 fn truncate_cub_pools(
     male_cubs: &mut Vec<Lion>,
     female_cubs: &mut Vec<Lion>,
     max_cubs_per_gender: usize,
 ) {
-    male_cubs.sort_unstable_by(|a, b| a.fitness.total_cmp(&b.fitness));
-    female_cubs.sort_unstable_by(|a, b| a.fitness.total_cmp(&b.fitness));
+    male_cubs.sort_by(|a, b| a.fitness.total_cmp(&b.fitness));
+    female_cubs.sort_by(|a, b| a.fitness.total_cmp(&b.fitness));
 
     if male_cubs.len() > max_cubs_per_gender {
         male_cubs.truncate(max_cubs_per_gender);
     }
     if female_cubs.len() > max_cubs_per_gender {
         female_cubs.truncate(max_cubs_per_gender);
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_lion_config_creation() {
+        let config = LionConfig::new(3);
+        assert_eq!(config.dim, 3);
+        assert_eq!(config.min_bounds.len(), 3);
+        assert_eq!(config.max_bounds.len(), 3);
+        assert_eq!(config.cubs_per_generation, 8);
+        assert_eq!(config.maturity_age, 3);
+        assert_eq!(config.max_generations, 100);
+    }
+
+    #[test]
+    fn test_lion_config_with_bounds() {
+        let config = LionConfig::new(2)
+            .with_bounds(vec![-5.0, -5.0], vec![5.0, 5.0]);
+        assert_eq!(config.min_bounds, vec![-5.0, -5.0]);
+        assert_eq!(config.max_bounds, vec![5.0, 5.0]);
+    }
+
+    #[test]
+    fn test_lion_config_with_cubs_per_generation() {
+        // Test minimum enforcement
+        let config = LionConfig::new(2).with_cubs_per_generation(1);
+        assert_eq!(config.cubs_per_generation, 2);
+
+        // Test normal value
+        let config = LionConfig::new(2).with_cubs_per_generation(16);
+        assert_eq!(config.cubs_per_generation, 16);
+    }
+
+    #[test]
+    fn test_lion_config_with_maturity_age() {
+        // Test minimum enforcement
+        let config = LionConfig::new(2).with_maturity_age(0);
+        assert_eq!(config.maturity_age, 1);
+
+        // Test normal value
+        let config = LionConfig::new(2).with_maturity_age(5);
+        assert_eq!(config.maturity_age, 5);
+    }
+
+    #[test]
+    fn test_lion_config_with_mutation_prob() {
+        // Test clamping to [0, 1]
+        let config = LionConfig::new(2).with_mutation_prob(1.5);
+        assert_eq!(config.mutation_prob, 1.0);
+
+        let config = LionConfig::new(2).with_mutation_prob(-0.5);
+        assert_eq!(config.mutation_prob, 0.0);
+
+        let config = LionConfig::new(2).with_mutation_prob(0.5);
+        assert_eq!(config.mutation_prob, 0.5);
+    }
+
+    #[test]
+    fn test_lion_config_with_crossover_probs() {
+        // Test clamping to [0, 1]
+        let config = LionConfig::new(2).with_crossover_probs(1.5, -0.5);
+        assert_eq!(config.crossover_probs.0, 1.0);
+        assert_eq!(config.crossover_probs.1, 0.0);
+
+        let config = LionConfig::new(2).with_crossover_probs(0.3, 0.6);
+        assert_eq!(config.crossover_probs.0, 0.3);
+        assert_eq!(config.crossover_probs.1, 0.6);
+    }
+
+    #[test]
+    fn test_lion_config_with_seed() {
+        let config = LionConfig::new(2).with_seed(42);
+        assert_eq!(config.seed, Some(42));
+    }
+
+    #[test]
+    fn test_balance_cub_pools() {
+        let mut male_cubs = vec![
+            Lion {
+                position: vec![1.0, 2.0],
+                fitness: 1.5,
+                gender: Gender::Male,
+                age: 0,
+            },
+            Lion {
+                position: vec![2.0, 3.0],
+                fitness: 2.5,
+                gender: Gender::Male,
+                age: 0,
+            },
+            Lion {
+                position: vec![3.0, 4.0],
+                fitness: 0.5,
+                gender: Gender::Male,
+                age: 0,
+            },
+        ];
+        let mut female_cubs = vec![
+            Lion {
+                position: vec![1.0, 1.0],
+                fitness: 3.0,
+                gender: Gender::Female,
+                age: 0,
+            },
+        ];
+
+        balance_cub_pools(&mut male_cubs, &mut female_cubs);
+
+        // Both pools should have the same size after balancing
+        assert_eq!(male_cubs.len(), female_cubs.len());
+        assert_eq!(male_cubs.len(), 1);
+    }
+
+    #[test]
+    fn test_truncate_cub_pools() {
+        let mut male_cubs = vec![
+            Lion {
+                position: vec![1.0],
+                fitness: 1.0,
+                gender: Gender::Male,
+                age: 0,
+            },
+            Lion {
+                position: vec![2.0],
+                fitness: 2.0,
+                gender: Gender::Male,
+                age: 0,
+            },
+            Lion {
+                position: vec![3.0],
+                fitness: 3.0,
+                gender: Gender::Male,
+                age: 0,
+            },
+        ];
+        let mut female_cubs = vec![
+            Lion {
+                position: vec![1.0],
+                fitness: 1.5,
+                gender: Gender::Female,
+                age: 0,
+            },
+            Lion {
+                position: vec![2.0],
+                fitness: 2.5,
+                gender: Gender::Female,
+                age: 0,
+            },
+        ];
+
+        truncate_cub_pools(&mut male_cubs, &mut female_cubs, 2);
+
+        assert_eq!(male_cubs.len(), 2);
+        assert_eq!(female_cubs.len(), 2);
+    }
+
+    #[test]
+    fn test_single_point_crossover_dim_less_than_2() {
+        let p1 = vec![1.0];
+        let p2 = vec![2.0];
+        let probs = (0.5, 0.5);
+
+        let child = single_point_crossover_dual_prob(&p1, &p2, probs);
+        assert_eq!(child.len(), 1);
+        assert!(child[0] == 1.0 || child[0] == 2.0);
+    }
+
+    #[test]
+    fn test_single_point_crossover_dim_2() {
+        let p1 = vec![1.0, 2.0];
+        let p2 = vec![3.0, 4.0];
+        let probs = (0.5, 0.5);
+
+        let child = single_point_crossover_dual_prob(&p1, &p2, probs);
+        assert_eq!(child.len(), 2);
+        // Child should be a mix of both parents
+        assert!(
+            (child[0] == 1.0 || child[0] == 3.0) && (child[1] == 2.0 || child[1] == 4.0)
+        );
+    }
+
+    #[test]
+    fn test_lion_optimize_simple_sphere() {
+        // Minimize sphere function: f(x) = x^2 + y^2 (optimum at [0, 0])
+        let config = LionConfig::new(2)
+            .with_bounds(vec![-5.0, -5.0], vec![5.0, 5.0])
+            .with_max_generations(50)
+            .with_seed(42);
+
+        let objective = |params: &[f64]| -> f64 {
+            params.iter().map(|x| x * x).sum()
+        };
+
+        let result = lion_optimize(&config, objective);
+
+        // Check that we get a reasonable result (fitness should be relatively small)
+        assert!(result.best_fitness < 1.0, "Final fitness {} too high", result.best_fitness);
+        assert_eq!(result.generations, 50);
+        assert_eq!(result.best_position.len(), 2);
+    }
+
+    #[test]
+    fn test_optimization_result_structure() {
+        let result = OptimizationResult {
+            best_position: vec![1.0, 2.0],
+            best_fitness: 0.5,
+            generations: 100,
+        };
+
+        assert_eq!(result.best_position.len(), 2);
+        assert_eq!(result.best_fitness, 0.5);
+        assert_eq!(result.generations, 100);
+    }
+
+    #[test]
+    fn test_gender_enum() {
+        let male = Gender::Male;
+        let female = Gender::Female;
+
+        assert_eq!(male, Gender::Male);
+        assert_ne!(male, female);
+        assert_eq!(female, Gender::Female);
     }
 }

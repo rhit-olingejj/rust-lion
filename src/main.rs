@@ -1,5 +1,5 @@
 use csv::ReaderBuilder;
-use rust_lion::{lion_optimize, LionConfig};
+use rust_lion::{LionConfig, lion_optimize};
 use std::collections::HashMap;
 use std::env;
 use std::error::Error;
@@ -191,26 +191,20 @@ fn main() -> Result<(), Box<dyn Error>> {
     }
 
     // Helper function to parse typed flags with a default fallback
-    fn get_flag<T: FromStr + Copy>(
-    map: &HashMap<String, String>,
-    key: &str,
-    default: T,
-    ) -> T {
+    fn get_flag<T: FromStr + Copy>(map: &HashMap<String, String>, key: &str, default: T) -> T {
         map.get(key)
             .and_then(|s| s.parse::<T>().ok())
             .unwrap_or(default)
     }
 
-    let max_generations: u32       = get_flag(&flag_map, "generations", 100);
+    let max_generations: u32 = get_flag(&flag_map, "generations", 100);
     let cubs_per_generation: usize = get_flag(&flag_map, "cubs", 16);
-    let maturity_age: u32          = get_flag(&flag_map, "maturity", 3);
-    let crossover1: f64            = get_flag(&flag_map, "crossover1", 0.3);
-    let crossover2: f64            = get_flag(&flag_map, "crossover2", 0.6);
-    let mutation_prob: f64         = get_flag(&flag_map, "mutation", 0.4);
-    let bound_min: f64             = get_flag(&flag_map, "bound-min", -2.0);
-    let bound_max: f64             = get_flag(&flag_map, "bound-max",  2.0);
-
-
+    let maturity_age: u32 = get_flag(&flag_map, "maturity", 3);
+    let crossover1: f64 = get_flag(&flag_map, "crossover1", 0.3);
+    let crossover2: f64 = get_flag(&flag_map, "crossover2", 0.6);
+    let mutation_prob: f64 = get_flag(&flag_map, "mutation", 0.4);
+    let bound_min: f64 = get_flag(&flag_map, "bound-min", 0.0);
+    let bound_max: f64 = get_flag(&flag_map, "bound-max", 1.0);
 
     // Configure the Lion algorithm with the parsed or default values
     let config = LionConfig::new(dim)
@@ -229,7 +223,7 @@ fn main() -> Result<(), Box<dyn Error>> {
         let bias = params[0];
 
         for row in &normalized_refs {
-            // Extract features 
+            // Extract features
             let features = &row[..n_features];
             // Extract target
             let target = row[n_features];

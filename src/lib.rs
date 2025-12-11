@@ -1,6 +1,5 @@
-//! Lion's Algorithm: a nature-inspired search / optimization algorithm.
-//! Simplified Rust implementation of:
-//! B. R. Rajakumar, "The Lion’s Algorithm: A New Nature-Inspired Search Algorithm"
+//! Lion's Algorithm: a nature-inspired search / optimization algorithm
+//! Simplified Rust implementation of: B. R. Rajakumar, "The Lion’s Algorithm: A New Nature-Inspired Search Algorithm"
 
 /// Gender of a lion used to separate male/female cub groups
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -9,7 +8,7 @@ pub enum Gender {
     Female,
 }
 
-/// A single lion solution.
+/// A single lion solution
 #[derive(Clone, Debug)]
 struct Lion {
     position: Vec<f64>,
@@ -18,11 +17,11 @@ struct Lion {
     age: u32,
 }
 
-/// Configuration parameters for the Lion algorithm.
+/// Configuration parameters for the Lion algorithm
 /// You can construct it via `LionConfig::new(dim)`
 #[derive(Clone, Debug)]
 pub struct LionConfig {
-    /// Dimensionality of the solution vector.
+    /// Dimensionality of the solution vector
     pub dim: usize,
     /// Lower bounds per dimension
     pub min_bounds: Vec<f64>,
@@ -113,7 +112,7 @@ impl LionConfig {
     }
 
     /// Set maturity age for cubs
-    /// Enforces a minimum of 1.
+    /// Enforces a minimum of 1
     /// ```
     /// use rust_lion::LionConfig;
     ///

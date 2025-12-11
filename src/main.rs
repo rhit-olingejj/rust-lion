@@ -7,7 +7,7 @@ use std::fs::File;
 use std::path::{Path, PathBuf};
 use std::str::FromStr;
 
-/// Load tab-separated numeric data from a file.
+/// Load tab-separated numeric data from a file
 fn load_numeric_tsv<P: AsRef<Path>>(path: P) -> Result<Vec<Vec<f64>>, Box<dyn Error>> {
     let file = File::open(path)?;
     let mut rdr = ReaderBuilder::new()
@@ -26,8 +26,8 @@ fn load_numeric_tsv<P: AsRef<Path>>(path: P) -> Result<Vec<Vec<f64>>, Box<dyn Er
     Ok(data)
 }
 
-/// Normalize data to [0, 1] range using min-max scaling.
-/// Returns normalized data and (min_vals, max_vals) for each column.
+/// Normalize data to [0, 1] range using min-max scaling
+/// Returns normalized data and (min_vals, max_vals) for each column
 fn normalize_data(data: &[Vec<f64>]) -> (Vec<Vec<f64>>, Vec<f64>, Vec<f64>) {
     if data.is_empty() {
         return (vec![], vec![], vec![]);
@@ -58,7 +58,7 @@ fn normalize_data(data: &[Vec<f64>]) -> (Vec<Vec<f64>>, Vec<f64>, Vec<f64>) {
             let normalized_val = if range > 0.0 {
                 (val - min_vals[j]) / range
             } else {
-                // If all values are the same, normalize to midpoint
+                // If all values are the same normalize to midpoint
                 0.5
             };
             norm_row.push(normalized_val);
@@ -69,7 +69,7 @@ fn normalize_data(data: &[Vec<f64>]) -> (Vec<Vec<f64>>, Vec<f64>, Vec<f64>) {
     (normalized, min_vals, max_vals)
 }
 
-/// Denormalize a prediction value back to original scale.
+/// Denormalize a prediction value back to original scale
 fn denormalize_target(normalized_val: f64, min_val: f64, max_val: f64) -> f64 {
     let range = max_val - min_val;
     if range > 0.0 {
@@ -79,7 +79,7 @@ fn denormalize_target(normalized_val: f64, min_val: f64, max_val: f64) -> f64 {
     }
 }
 
-/// Compute regression metrics: MAE, RMSE, and R^2.
+/// Compute regression metrics: MAE, RMSE, and R^2
 fn compute_metrics(data: &[&Vec<f64>], coefficients: &[f64], n_features: usize) -> (f64, f64, f64) {
     let mut sum_abs_error = 0.0;
     let mut sum_sq_error = 0.0;
@@ -92,7 +92,7 @@ fn compute_metrics(data: &[&Vec<f64>], coefficients: &[f64], n_features: usize) 
         let features = &row[..n_features];
         let target = row[n_features];
 
-        // prediction = bias + sum w_i(offset by one because of bias term) * x_i
+        // prediction = bias + sum wi(offset by one because of bias term) * xi
         let mut pred = bias;
         for (i, &feature) in features.iter().enumerate() {
             pred += coefficients[i + 1] * feature;
@@ -125,9 +125,9 @@ fn compute_metrics(data: &[&Vec<f64>], coefficients: &[f64], n_features: usize) 
     (mae, rmse, r_squared)
 }
 
-/// Main entry point: loads dataset from command-line argument and optimizes multi-feature linear regression.
+/// Main entry point: loads dataset from command-line argument and optimizes multi-feature linear regression
 /// Usage: cargo run -- <path_to_data_file> [--key=value ...]
-/// Last column is treated as the target; all preceding columns are features.
+/// Last column is treated as the target; all preceding columns are features
 fn main() -> Result<(), Box<dyn Error>> {
     // Parse command-line arguments
     let args: Vec<String> = env::args().collect();
@@ -267,7 +267,7 @@ fn main() -> Result<(), Box<dyn Error>> {
         );
     }
 
-    // Compute regression metrics on the normalized dataset
+    // Compute regression metrics
     let (mae, rmse, r_squared) =
         compute_metrics(&normalized_refs, &result.best_position, n_features);
 

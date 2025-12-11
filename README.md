@@ -14,30 +14,6 @@ The Lion Algorithm models social behaviors of lions, such as pride formation, no
 - **Configurable**: Flexible algorithm parameters (bounds, generations, mutation rates, etc.)
 - **Multi-feature linear regression**: Driver program supports any numeric tab seperated dataset assuming the last column is the target and the data is well formed
 
-## Library Usage
-
-### Basic Example
-```rust
-use rust_lion::{LionConfig, lion_optimize};
-
-fn main() {
-    let dim = 2;
-    let config = LionConfig::new(dim)
-        .with_bounds(vec![-10.0, -10.0], vec![10.0, 10.0])
-        .with_max_generations(100)
-        .with_seed(42);
-
-    let objective = |params: &[f64]| -> f64 {
-        // Minimize sum of squares
-        params.iter().map(|x| x * x).sum()
-    };
-
-    let result = lion_optimize(&config, objective);
-    println!("Best fitness: {}", result.best_fitness);
-    println!("Best position: {:?}", result.best_position);
-}
-```
-
 ## Driver Program: Linear Regression via Lion Algorithm
 
 The `main.rs` driver program uses the Lion Algorithm to optimize multi-feature linear regression coefficients on arbitrary numeric tab seperated datasets.
@@ -45,11 +21,6 @@ The `main.rs` driver program uses the Lion Algorithm to optimize multi-feature l
 ### Usage
 ```bash
 cargo run -- <path_to_data_file>
-```
-
-### Example
-```bash
-cargo run -- airfoil_self_noise.dat
 ```
 
 ### Input Format
@@ -81,7 +52,7 @@ The program prints:
 ### Assumptions
 1. All data is numeric no missing values or non-numeric entries
 2. Rows with fewer columns than expected are filtered out
-3. Linear regression model: `y = w1 * x1 + w2 * x2 + ... + wn * xn`
+3. Linear regression model: `y = w1 * x1 + w2 * x2 + ... + wn * xn + b`
 4. Objective: Minimize Mean Squared Error (MSE) across all samples
 
 ## Performance Improvements
@@ -106,13 +77,6 @@ Run the optimizer with a custom dataset:
 
 ```cargo run -- path/to/datafile.dat```
 
-
-The dataset must be tab-separated, where:
-
-All columns except the last are treated as input features
-
-The last column is treated as the regression target
-
 Configuration Parameters
 
 You can customize the Lion Algorithm using flags in the following format:
@@ -134,6 +98,11 @@ Example:
 | `--crossover1=P`  | `0.3`   | First crossover probability.                  |
 | `--crossover2=P`  | `0.6`   | Second crossover probability.                 |
 | `--mutation=P`    | `0.4`   | Mutation probability.                         |
-| `--bound-min=X`   | `-2.0`  | Minimum bound for weights and bias.           |
-| `--bound-max=X`   | `2.0`   | Maximum bound for weights and bias.           |
+| `--bound-min=X`   | `0`     | Minimum bound for weights and bias.           |
+| `--bound-max=X`   | `1.0`   | Maximum bound for weights and bias.           |
 | `--seed=N`        | `42`    | Optional random seed for reproducible results |
+
+## Lessons Learned
+I struggled early on with lifetimes, references, and learning to code in an appropriate Rust style. It took me longer than expected to get a working version of the Lion algorithm into general library functions.
+I also did not expect the driver program to take as long as it did to make. Initially, I got quite poor performance on the linear regression task, so I added in standard pre-processing normalization of the numeric data to the driver program.
+I then worked on optimizing the code, which also took longer than expected. I found that the program works well, R^2 around 0.85, on the energy data set because it is more linear while the airfoil datset is very non-linear, so the linear algorithm struggles to give accurate predicitions. I tried to do some work with vizualization, but ended up not succeding in generating a UI and pivoted to focus on the algorithm and driver program.

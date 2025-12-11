@@ -5,12 +5,13 @@
 ## Overview  
 **Rust-Lion** is a bio-inspired optimization library implementing the **Lion Algorithm (LA)** in **Rust**.  
 The Lion Algorithm models social behaviors of lions, such as pride formation, nomadic exploration, and territorial defense, to solve optimization problems efficiently.
+I have modeled this algorithm in Rust through a linear regression driver program that relies on a generalized implementation of the Lion Algorithm to generate its weights.
 
 **Reference:** [Lion Algorithm Paper](https://www.sciencedirect.com/science/article/pii/S2212017312005610?ref=pdf_download&fr=RR-2&rr=99ca054a098787ab)
 
 ## Key Features
 - **Efficient optimization**: Reduced cloning via reference-based candidate selection and smart best tracking
-- **Idiomatic Rust**: Uses `sort_by` with `total_cmp` for fast, stable sorting
+- **Rust Functions**: Uses `sort_by` with `total_cmp` for fast, stable sorting
 - **Configurable**: Flexible algorithm parameters (bounds, generations, mutation rates, etc.)
 - **Multi-feature linear regression**: Driver program supports any numeric tab seperated dataset assuming the last column is the target and the data is well formed
 
@@ -35,8 +36,6 @@ cargo run -- <path_to_data_file>
 1000   0      0.3048  71.3   0.00266337  125.201
 ...
 ```
-Features: frequency, angle, chord_length, velocity, displacement_thickness  
-Target: noise_level (last column)
 
 ### Output
 The program prints:

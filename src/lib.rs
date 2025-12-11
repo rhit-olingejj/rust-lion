@@ -18,32 +18,31 @@ struct Lion {
 }
 
 /// Configuration parameters for the Lion algorithm
-/// You can construct it via `LionConfig::new(dim)`
 #[derive(Clone, Debug)]
 pub struct LionConfig {
-    /// Dimensionality of the solution vector
+    // Dimensionality of the solution vector
     pub dim: usize,
-    /// Lower bounds per dimension
+    // Lower bounds per dimension
     pub min_bounds: Vec<f64>,
-    /// Upper bounds per dimension
+    // Upper bounds per dimension
     pub max_bounds: Vec<f64>,
 
-    /// Number of cubs generated per generation will be rounded up to the nearest even number
+    // Number of cubs generated per generation will be rounded up to the nearest even number
     pub cubs_per_generation: usize,
 
-    /// Cub maturity age: after this, cubs can be considered for takeover
+    // Cub maturity age: after this, cubs can be considered for takeover
     pub maturity_age: u32,
 
-    /// Maximum number of generations
+    // Maximum number of generations
     pub max_generations: u32,
 
-    /// Crossover probabilities (p1, p2) for the dual-probability single-point crossover
+    // Crossover probabilities (p1, p2) for the dual-probability single-point crossover
     pub crossover_probs: (f64, f64),
 
-    /// Mutation probability per gene
+    // Mutation probability per gene
     pub mutation_prob: f64,
 
-    /// Seed for running expirements with algorithm
+    // Seed for running expirements with algorithm
     pub seed: Option<u64>,
 }
 

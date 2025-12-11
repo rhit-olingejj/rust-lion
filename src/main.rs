@@ -176,7 +176,7 @@ fn main() -> Result<(), Box<dyn Error>> {
     // Convert back to references for optimization
     let normalized_refs: Vec<_> = normalized_data.iter().collect();
 
-    // We use: params[0] = bias, params[1..=n_features] = weights
+    // params[0] = bias, params[1..=n_features] = weights
     let dim = n_features + 1;
 
     // Parse optional command-line flags for Lion parameters
@@ -215,7 +215,7 @@ fn main() -> Result<(), Box<dyn Error>> {
         .with_crossover_probs(crossover1, crossover2)
         .with_mutation_prob(mutation_prob);
 
-    // Define the objective function: to minimize Mean Squared Error
+    // Define the objective function to minimize Mean Squared Error
     let objective = |params: &[f64]| -> f64 {
         let mut mse = 0.0;
         let mut count = 0;
